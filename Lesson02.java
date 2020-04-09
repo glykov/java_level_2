@@ -8,13 +8,15 @@ public class Lesson02 {
     private static String[][] getMatrix(Scanner in) throws MatrixFormatException {
         String[][] result = new String[LINES_COUNT][ELEMENTS_PER_LINE];
         String[] line = in.nextLine().split("\\\\n");
-        if (line.length > LINES_COUNT || line.length == 0) {
+        if (line.length != LINES_COUNT) {
             throw new MatrixFormatException("Incorrect number of lines in matrix");
         }
         for (int i = 0; i < line.length; i++) {
-            result[i] = line[i].split(" ");
-            if (result[i].length > ELEMENTS_PER_LINE)
-                throw new MatrixFormatException("Too many elements in line");
+            String tmp = line[i].split(" ");
+            if (tmp.length != ELEMENTS_PER_LINE)
+                throw new MatrixFormatException("Incorrect number of elements in line");
+            else
+                result[i] = tmp;
         }
         return result;
     }
