@@ -8,8 +8,8 @@ public class Lesson02 {
     private static String[][] getMatrix(Scanner in) throws MatrixFormatException {
         String[][] result = new String[LINES_COUNT][ELEMENTS_PER_LINE];
         String[] line = in.nextLine().split("\\\\n");
-        if (line.length > LINES_COUNT) {
-            throw new MatrixFormatException("Too many lines in matrix");
+        if (line.length > LINES_COUNT || line.length == 0) {
+            throw new MatrixFormatException("Incorrect number of lines in matrix");
         }
         for (int i = 0; i < line.length; i++) {
             result[i] = line[i].split(" ");
