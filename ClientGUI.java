@@ -122,6 +122,7 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
     public void keyTyped(KeyEvent e) {
     }
 
+    // переносим текст из поля ввода в лог
     private void moveText() {
         String msg = tfMessage.getText();
         tfMessage.setText("");
@@ -166,6 +167,7 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
     public void windowOpened(WindowEvent e) {
     }
 
+    // сохраняем лог в файл
     private void saveLog() {
         try (PrintWriter pw = new PrintWriter(new FileWriter("log.txt", true))) {
             String text = log.getText();
