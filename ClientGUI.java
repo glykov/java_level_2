@@ -1,6 +1,6 @@
+import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import javax.swing.*;
 import java.io.*;
 
 public class ClientGUI extends JFrame implements ActionListener, KeyListener, WindowListener, Thread.UncaughtExceptionHandler {
@@ -23,6 +23,8 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
     private final JButton btnDisconnect = new JButton("Disconnect");
     private final JTextField tfMessage = new JTextField();
     private final JButton btnSend = new JButton("Send");
+    // flag if log is saved
+    private boolean logSaved = false;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
@@ -44,10 +46,10 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
         log.setWrapStyleWord(true);
         log.setEditable(false);
         JScrollPane scrLog = new JScrollPane(log);
-        userList.setListData(new String[] {
-            "user1", "user2", "user3", "user4",
-            "user5", "user6", "user7", "user8", "user9",
-            "user-with-exceptionally-long-name-in-this-chat"
+        userList.setListData(new String[]{
+                "user1", "user2", "user3", "user4",
+                "user5", "user6", "user7", "user8", "user9",
+                "user-with-exceptionally-long-name-in-this-chat"
         });
         JScrollPane scrUser = new JScrollPane(userList);
         scrUser.setPreferredSize(new Dimension(100, 0));
@@ -83,8 +85,10 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
         Object src = e.getSource();
         if (src == cbAlwaysOnTop) {
             setAlwaysOnTop(cbAlwaysOnTop.isSelected());
-        } else if (src == btnSend) {    // Отправлять сообщения в лог по нажатию кнопки
+        } else if (src == btnSend) {        // Отправлять сообщения в лог по нажатию кнопки
             moveText();
+        } else if (src == btnDisconnect) {  // Пишу лог при отключении от сервера
+            if (!logSaved) saveLog();
         } else {
             throw new RuntimeException("Unknown source " + src);
         }
@@ -108,10 +112,12 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {
+    }
 
     @Override
-    public void keyTyped(KeyEvent e) {}
+    public void keyTyped(KeyEvent e) {
+    }
 
     private void moveText() {
         String msg = tfMessage.getText();
@@ -120,22 +126,27 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
     }
 
     @Override
-    public void windowDeactivated(WindowEvent e) {}
+    public void windowDeactivated(WindowEvent e) {
+    }
 
     @Override
-    public void windowActivated(WindowEvent e) {}
+    public void windowActivated(WindowEvent e) {
+    }
 
     @Override
-    public void windowDeiconified(WindowEvent e) {}
+    public void windowDeiconified(WindowEvent e) {
+    }
 
     @Override
-    public void windowIconified(WindowEvent e) {}
+    public void windowIconified(WindowEvent e) {
+    }
 
     @Override
-    public void windowClosed(WindowEvent e) {}
+    public void windowClosed(WindowEvent e) {
+    }
 
     /**
-     * Решил писать лог файл при закрытии окна. Понимаю, что решение не оптимальное,
+     * Решил писать лог файл еще и при закрытии окна. Понимаю, что решение не оптимальное,
      * пытался прикрутить DocumentListener из swing.events и писать все изменения, происходящие
      * в log, но не смог разобраться где открывать, а гланое, где закрывать PrintWriter
      * Была еще мысль сохранять содержимое JTextArea по таймеру, каждую, скажем минуту.
@@ -145,14 +156,20 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
      */
     @Override
     public void windowClosing(WindowEvent e) {
+        if (!logSaved) saveLog();
+    }
+
+    @Override
+    public void windowOpened(WindowEvent e) {
+    }
+
+    private void saveLog() {
         try (PrintWriter pw = new PrintWriter(new FileWriter("log.txt", true))) {
             String text = log.getText();
             pw.println(text);
+            logSaved = true;
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(null, ex.getMessage(), "Chat is not saved", JOptionPane.ERROR_MESSAGE);
         }
     }
-
-    @Override
-    public void windowOpened(WindowEvent e) {}
 }
