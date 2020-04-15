@@ -60,6 +60,7 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
         panelTop.add(cbAlwaysOnTop);
         panelTop.add(tfLogin);
         panelTop.add(pfPassword);
+        btnLogin.addActionListener(this);
         panelTop.add(btnLogin);
         // filling bottom panel with components
         panelBottom.add(btnDisconnect, BorderLayout.WEST);
@@ -89,6 +90,8 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
             moveText();
         } else if (src == btnDisconnect) {  // Пишу лог при отключении от сервера
             if (!logSaved) saveLog();
+        } else if (src == btnLogin) {       // при коннекте в другой чат нужно будет снова писать лог
+            logSaved = false;
         } else {
             throw new RuntimeException("Unknown source " + src);
         }
