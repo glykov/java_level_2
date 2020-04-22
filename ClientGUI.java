@@ -1,30 +1,38 @@
+package ru.gb.jtwo.chat.client;
+
+import ru.gb.jtwo.network.SocketThread;
+import ru.gb.jtwo.network.SocketThreadListener;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-import java.io.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.Socket;
 
-public class ClientGUI extends JFrame implements ActionListener, KeyListener, WindowListener, Thread.UncaughtExceptionHandler {
+public class ClientGUI extends JFrame implements ActionListener, Thread.UncaughtExceptionHandler, SocketThreadListener {
+
     private static final int WIDTH = 400;
     private static final int HEIGHT = 300;
-    // panels to align components
-    private final JPanel panelTop = new JPanel(new GridLayout(2, 3));
-    private final JPanel panelBottom = new JPanel(new BorderLayout());
-    // components to be held in scrolling panels
+
     private final JTextArea log = new JTextArea();
-    private final JList<String> userList = new JList<>();
-    // components to be held in top panel
+    private final JPanel panelTop = new JPanel(new GridLayout(2, 3));
     private final JTextField tfIPAddress = new JTextField("127.0.0.1");
     private final JTextField tfPort = new JTextField("8189");
     private final JCheckBox cbAlwaysOnTop = new JCheckBox("Always on top", true);
-    private final JTextField tfLogin = new JTextField("gleb");
-    private final JPasswordField pfPassword = new JPasswordField("123");
+    private final JTextField tfLogin = new JTextField("ivan");
+    private final JPasswordField tfPassword = new JPasswordField("123");
     private final JButton btnLogin = new JButton("Login");
-    // components to be held in bottom panel
-    private final JButton btnDisconnect = new JButton("Disconnect");
+
+    private final JPanel panelBottom = new JPanel(new BorderLayout());
+    private final JButton btnDisconnect = new JButton("<html><b>Disconnect</b></html>");
     private final JTextField tfMessage = new JTextField();
     private final JButton btnSend = new JButton("Send");
-    // flag if log is saved
-    private boolean logSaved = false;
+
+    private final JList<String> userList = new JList<>();
+    private boolean shownIoErrors = false;
+    private SocketThread socketThread;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
@@ -35,49 +43,40 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
         });
     }
 
-    public ClientGUI() {
-        // doing window household
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    ClientGUI() {
+        Thread.setDefaultUncaughtExceptionHandler(this);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
         setSize(WIDTH, HEIGHT);
-        setTitle("Chat client");
         setAlwaysOnTop(true);
-        // creating panels with scroll bars for log and users
+        userList.setListData(new String[]{"user1", "user2", "user3", "user4",
+                "user5", "user6", "user7", "user8", "user9",
+                "user-with-exceptionally-long-name-in-this-chat"});
+        JScrollPane scrUser = new JScrollPane(userList);
+        JScrollPane scrLog = new JScrollPane(log);
+        scrUser.setPreferredSize(new Dimension(100, 0));
         log.setLineWrap(true);
         log.setWrapStyleWord(true);
         log.setEditable(false);
-        JScrollPane scrLog = new JScrollPane(log);
-        userList.setListData(new String[]{
-                "user1", "user2", "user3", "user4",
-                "user5", "user6", "user7", "user8", "user9",
-                "user-with-exceptionally-long-name-in-this-chat"
-        });
-        JScrollPane scrUser = new JScrollPane(userList);
-        scrUser.setPreferredSize(new Dimension(100, 0));
-        // filling top panel with components
+        cbAlwaysOnTop.addActionListener(this);
+        tfMessage.addActionListener(this);
+        btnSend.addActionListener(this);
+        btnLogin.addActionListener(this);
+
         panelTop.add(tfIPAddress);
         panelTop.add(tfPort);
-        cbAlwaysOnTop.addActionListener(this);
         panelTop.add(cbAlwaysOnTop);
         panelTop.add(tfLogin);
-        panelTop.add(pfPassword);
-        btnLogin.addActionListener(this);
+        panelTop.add(tfPassword);
         panelTop.add(btnLogin);
-        // filling bottom panel with components
         panelBottom.add(btnDisconnect, BorderLayout.WEST);
-        tfMessage.addKeyListener(this);
         panelBottom.add(tfMessage, BorderLayout.CENTER);
-        btnSend.addActionListener(this);
         panelBottom.add(btnSend, BorderLayout.EAST);
-        // add panels with components to window
-        add(panelTop, BorderLayout.NORTH);
-        add(scrLog, BorderLayout.CENTER);
+
         add(scrUser, BorderLayout.EAST);
+        add(scrLog, BorderLayout.CENTER);
+        add(panelTop, BorderLayout.NORTH);
         add(panelBottom, BorderLayout.SOUTH);
-        // set exception handling
-        Thread.setDefaultUncaughtExceptionHandler(this);
-        // adding window listener
-        addWindowListener(this);
-        // show window
         setVisible(true);
     }
 
@@ -86,95 +85,103 @@ public class ClientGUI extends JFrame implements ActionListener, KeyListener, Wi
         Object src = e.getSource();
         if (src == cbAlwaysOnTop) {
             setAlwaysOnTop(cbAlwaysOnTop.isSelected());
-        } else if (src == btnSend) {        // Отправлять сообщения в лог по нажатию кнопки
-            moveText();
-        } else if (src == btnDisconnect) {  // Пишу лог при отключении от сервера
-            if (!logSaved) saveLog();
-        } else if (src == btnLogin) {       // при коннекте в другой чат нужно будет снова писать лог
-            logSaved = false;
+        } else if (src == btnSend || src == tfMessage) {
+            sendMessage();
+        } else if (src == btnLogin) {
+            connect();
         } else {
-            throw new RuntimeException("Unknown source " + src);
+            throw new RuntimeException("Unknown source:" + src);
+        }
+    }
+
+    private void connect() {
+        try {
+            Socket socket = new Socket(tfIPAddress.getText(), Integer.parseInt(tfPort.getText()));
+            socketThread = new SocketThread(this, "Client", socket);
+        } catch (IOException e) {
+            showException(Thread.currentThread(), e);
+        }
+    }
+
+    private void sendMessage() {
+        String msg = tfMessage.getText();
+        String username = tfLogin.getText();
+        if ("".equals(msg)) return;
+        tfMessage.setText(null);
+        tfMessage.requestFocusInWindow();
+        socketThread.sendMessage(msg);
+        //putLog(String.format("%s: %s", username, msg));
+        //wrtMsgToLogFile(msg, username);
+    }
+
+    private void wrtMsgToLogFile(String msg, String username) {
+        try (FileWriter out = new FileWriter("log.txt", true)) {
+            out.write(username + ": " + msg + System.lineSeparator());
+            out.flush();
+        } catch (IOException e) {
+            if (!shownIoErrors) {
+                shownIoErrors = true;
+                showException(Thread.currentThread(), e);
+            }
+        }
+    }
+
+    private void putLog(String msg) {
+        if ("".equals(msg)) return;
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                log.append(msg + System.lineSeparator());
+                log.setCaretPosition(log.getDocument().getLength());
+            }
+        });
+    }
+
+    private void showException(Thread t, Throwable e) {
+        String msg;
+        StackTraceElement[] ste = e.getStackTrace();
+        if (ste.length == 0)
+            msg = "Empty Stacktrace";
+        else {
+            msg = String.format("Exception in \"%s\" %s: %s\n\tat %s",
+                    t.getName(), e.getClass().getCanonicalName(), e.getMessage(), ste[0]);
+            JOptionPane.showMessageDialog(this, msg, "Exception", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     @Override
     public void uncaughtException(Thread t, Throwable e) {
-        String msg;
-        StackTraceElement[] ste = e.getStackTrace();
-        msg = String.format("Exception in \"%s\" %s: %s\n\tat %s",
-                t.getName(), e.getClass().getCanonicalName(), e.getMessage(), ste[0]);
-        JOptionPane.showMessageDialog(this, msg, "Exception", JOptionPane.ERROR_MESSAGE);
+        e.printStackTrace();
+        showException(t, e);
         System.exit(1);
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) {    // Отправлять сообщения в лог по нажатию клавиши Enter.
-        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-            moveText();
-        }
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-    }
-
-    // переносим текст из поля ввода в лог
-    private void moveText() {
-        String msg = tfMessage.getText();
-        tfMessage.setText("");
-        log.append(msg + "\n");
-    }
-
-    @Override
-    public void windowDeactivated(WindowEvent e) {
-    }
-
-    @Override
-    public void windowActivated(WindowEvent e) {
-    }
-
-    @Override
-    public void windowDeiconified(WindowEvent e) {
-    }
-
-    @Override
-    public void windowIconified(WindowEvent e) {
-    }
-
-    @Override
-    public void windowClosed(WindowEvent e) {
-    }
-
     /**
-     * Решил писать лог файл еще и при закрытии окна. Понимаю, что решение не оптимальное,
-     * пытался прикрутить DocumentListener из swing.events и писать все изменения, происходящие
-     * в log, но не смог разобраться где открывать, а гланое, где закрывать PrintWriter
-     * Была еще мысль сохранять содержимое JTextArea по таймеру, каждую, скажем минуту.
-     * Подумал бы еще, но нужно идти на дежурство
-     * С нетерапением жду вебинара, чтобы узнать как писать в файлы из приложения с GUI
-     * не по кнопке "Save"
+     * Socket Thread Listener methods
      */
+
     @Override
-    public void windowClosing(WindowEvent e) {
-        if (!logSaved) saveLog();
+    public void onSocketStart(SocketThread thread, Socket socket) {
+        putLog("Start");
     }
 
     @Override
-    public void windowOpened(WindowEvent e) {
+    public void onSocketStop(SocketThread thread) {
+        putLog("Stop");
     }
 
-    // сохраняем лог в файл
-    private void saveLog() {
-        try (PrintWriter pw = new PrintWriter(new FileWriter("log.txt", true))) {
-            String text = log.getText();
-            pw.println(text);
-            logSaved = true;
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(null, ex.getMessage(), "Chat is not saved", JOptionPane.ERROR_MESSAGE);
-        }
+    @Override
+    public void onSocketReady(SocketThread thread, Socket socket) {
+        putLog("Ready");
+    }
+
+    @Override
+    public void onReceiveString(SocketThread thread, Socket socket, String msg) {
+        putLog(msg);
+    }
+
+    @Override
+    public void onSocketException(SocketThread thread, Throwable throwable) {
+        showException(thread, throwable);
     }
 }
