@@ -2,6 +2,7 @@ package ru.gb.jtwo.network;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
 
@@ -10,6 +11,8 @@ public class SocketThread extends Thread {
     private Socket socket;
     private SocketThreadListener listener;
     private DataOutputStream out;
+    // перенес в поле метода, чтобы закрывать при закрытии сокета
+    private DataInputStream in;
 
     public SocketThread(SocketThreadListener listener, String name, Socket socket) {
         super(name);
@@ -22,12 +25,18 @@ public class SocketThread extends Thread {
     public void run() {
         try {
             listener.onSocketStart(this, socket);
-            DataInputStream in = new DataInputStream(socket.getInputStream());
+            in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
             listener.onSocketReady(this, socket);
             while (!isInterrupted()) {
-                String msg = in.readUTF();
-                listener.onReceiveString(this, socket, msg);
+                try {
+                    String msg = in.readUTF();
+                    listener.onReceiveString(this, socket, msg);
+                } catch (EOFException eofx) {
+                    // похоже это исключение можно игнорировать,
+                    // если я правильно понял документацию оракула
+                    // но это не помогает корректно закрыть InputStream
+                }
             }
         } catch (IOException e) {
             listener.onSocketException(this, e);
@@ -57,6 +66,7 @@ public class SocketThread extends Thread {
         }
         interrupt();
         try {
+            in.close();
             socket.close();
         } catch (IOException e) {
             listener.onSocketException(this, e);

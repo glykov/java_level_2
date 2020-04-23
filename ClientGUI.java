@@ -69,6 +69,7 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
         panelTop.add(tfLogin);
         panelTop.add(tfPassword);
         panelTop.add(btnLogin);
+        btnDisconnect.addActionListener(this);
         panelBottom.add(btnDisconnect, BorderLayout.WEST);
         panelBottom.add(tfMessage, BorderLayout.CENTER);
         panelBottom.add(btnSend, BorderLayout.EAST);
@@ -77,6 +78,7 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
         add(scrLog, BorderLayout.CENTER);
         add(panelTop, BorderLayout.NORTH);
         add(panelBottom, BorderLayout.SOUTH);
+        panelBottom.setVisible(false);
         setVisible(true);
     }
 
@@ -89,6 +91,12 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
             sendMessage();
         } else if (src == btnLogin) {
             connect();
+            panelTop.setVisible(false);
+            panelBottom.setVisible(true);
+        } else if (src == btnDisconnect) {
+            disconnect();
+            panelTop.setVisible(true);
+            panelBottom.setVisible(false);
         } else {
             throw new RuntimeException("Unknown source:" + src);
         }
@@ -99,6 +107,17 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
             Socket socket = new Socket(tfIPAddress.getText(), Integer.parseInt(tfPort.getText()));
             socketThread = new SocketThread(this, "Client", socket);
         } catch (IOException e) {
+            showException(Thread.currentThread(), e);
+        }
+    }
+
+    /**
+     * всегда возникает исключение по поводу закрытия читающего потока
+     */
+    private void disconnect() {
+        try {
+            socketThread.close();
+        } catch (Exception e) {
             showException(Thread.currentThread(), e);
         }
     }

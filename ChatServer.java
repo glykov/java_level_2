@@ -7,10 +7,12 @@ import ru.gb.jtwo.network.SocketThreadListener;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Vector;
 
 public class ChatServer implements ServerSocketThreadListener, SocketThreadListener {
 
     ServerSocketThread server;
+    private Vector<SocketThread> clients = new Vector<>();
 
     public void start(int port) {
         if (server != null && server.isAlive())
@@ -33,7 +35,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
 
     /**
      * Server Socket Thread Listener methods
-     * */
+     */
 
     @Override
     public void onServerStarted(ServerSocketThread thread) {
@@ -54,7 +56,8 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     public void onSocketAccepted(ServerSocketThread thread, ServerSocket server, Socket socket) {
         putLog("Client connected");
         String name = "SocketThread " + socket.getInetAddress() + ":" + socket.getPort();
-        new SocketThread(this, name, socket);
+        SocketThread st = new SocketThread(this, name, socket);
+        clients.add(st);
     }
 
     @Override
@@ -70,7 +73,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
 
     /**
      * Socket Thread Listener methods
-     * */
+     */
 
     @Override
     public void onSocketStart(SocketThread thread, Socket socket) {
@@ -89,7 +92,10 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
 
     @Override
     public void onReceiveString(SocketThread thread, Socket socket, String msg) {
-        thread.sendMessage("echo: " + msg);
+        //thread.sendMessage("echo: " + msg);
+        for (SocketThread st : clients) {
+            st.sendMessage("echo: " + msg);
+        }
     }
 
     @Override
